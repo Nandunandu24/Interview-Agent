@@ -184,6 +184,19 @@ section[data-testid="stSidebar"] {
 .timeline-title.follow-up {
     color: #EC4899;
 }
+
+/* Force dark-mode style for inputs & textareas */
+.stTextArea textarea, .stTextInput input, div[data-baseweb="textarea"], div[data-baseweb="input"] {
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Fix main Streamlit header white-bar leak */
+header[data-testid="stHeader"] {
+    background-color: rgba(15, 23, 42, 0.5) !important;
+    backdrop-filter: blur(10px) !important;
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
