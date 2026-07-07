@@ -10,6 +10,7 @@ The app supports voice synthesis (Text-to-Speech) for the interviewer and browse
 - **Challenge Name:** The 24-Hour AI Agent Challenge (Rooman Technologies)
 - **Role Track:** Junior AI Research Associate
 - **Agent Chosen:** Interview Agent (Intermediate Category)
+- **Live Demo URL:** [https://interview-agent-1-dejj.onrender.com/](https://interview-agent-1-dejj.onrender.com/)
 - **One-Sentence Core:** My agent takes a candidate's resume/profile along with interactive answers and produces an objective, question-by-question technical evaluation report.
 
 ## 🚀 Expected Capabilities Implemented
