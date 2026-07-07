@@ -245,6 +245,8 @@ if "initialized" not in st.session_state:
     st.session_state.summary = ""
     st.session_state.history = []
     st.session_state.fresh_asked = 0
+    st.session_state.current_question_index = 0
+    st.session_state.current_transcript_buffer = ""
     st.session_state.last_was_weak = False
     st.session_state.current_question = ""
     st.session_state.interview_completed = False
@@ -448,6 +450,8 @@ def reset_interview():
     st.session_state.interview_started = False
     st.session_state.history = []
     st.session_state.fresh_asked = 0
+    st.session_state.current_question_index = 0
+    st.session_state.current_transcript_buffer = ""
     st.session_state.last_was_weak = False
     st.session_state.current_question = ""
     st.session_state.interview_completed = False
@@ -992,13 +996,16 @@ else:
             """.replace("QUESTION_ID_PLACEHOLDER", f"{st.session_state.fresh_asked}_{len(st.session_state.history)}").replace("QUESTION_INDEX_PLACEHOLDER", f"{st.session_state.fresh_asked}")
             st.components.v1.html(stt_html, height=180)
 
-        # Unique input box key based on question index to auto-clear on transition
-        ans_box_key = f"candidate_ans_input_{st.session_state.fresh_asked}_{len(st.session_state.history)}"
-        candidate_answer = st.text_area("Type or paste your answer here:", key=ans_box_key, height=150)
+        # Bind text area to st.session_state.current_transcript_buffer
+        candidate_answer = st.text_area(
+            "Type or paste your answer here:", 
+            key="current_transcript_buffer", 
+            height=150
+        )
         
-        col_b1, col_b2 = st.columns([4, 1])
+        col_b1, col_b2 = st.columns([3, 2])
         with col_b2:
-            if st.button("Submit Answer ➔", use_container_width=True, type="primary"):
+            if st.button("Submit Answer & Next Question ➔", use_container_width=True, type="primary"):
                 if not candidate_answer.strip():
                     st.warning("Please type or record an answer before submitting.")
                 else:
@@ -1052,7 +1059,13 @@ else:
                                         st.session_state.fresh_asked += 1
                                 else:
                                     next_q = None
-                                    
+                            
+                            # Advance the dynamic question counter pointer
+                            st.session_state.current_question_index += 1
+                            
+                            # Clear the transcript buffer for the next question
+                            st.session_state.current_transcript_buffer = ""
+                            
                             if next_q:
                                 st.session_state.current_question = next_q
                                 st.session_state.history.append({"role": "interviewer", "content": next_q, "is_follow_up": st.session_state.last_was_weak})
