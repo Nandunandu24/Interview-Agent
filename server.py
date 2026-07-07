@@ -943,4 +943,4 @@ async def api_upload_audio(file: UploadFile = File(...), question_index: int = F
 
 if __name__ == "__main__":
     print("Starting FastAPI backend server locally...")
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

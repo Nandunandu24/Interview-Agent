@@ -24,8 +24,8 @@ COPY . .
 EXPOSE 8501
 EXPOSE 8000
 
-# Make the start script executable
-RUN chmod +x start.sh
+# Make the start script executable and fix line endings
+RUN sed -i -e 's/\r$//' start.sh && chmod +x start.sh
 
 # Run the start script
 CMD ["./start.sh"]
