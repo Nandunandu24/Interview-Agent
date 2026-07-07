@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.env.local
+.env.*.local
+venv/
+ENV/
+env/
+
+# Streamlit
+.streamlit/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Sessions and Temp files (except samples)
+data/temp/
+data/audio/*
+data/sessions/*
+!data/sessions/sample_transcript.json
+!data/sessions/sample_transcript.md

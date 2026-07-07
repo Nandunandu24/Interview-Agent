@@ -1,0 +1,30 @@
+JANE DOE
+Lead Backend Developer
+Email: jane.doe@example.com | Phone: (123) 456-7890 | GitHub: github.com/janedoe
+
+PROFESSIONAL SUMMARY
+Highly experienced Backend Developer specializing in building scalable distributed systems, high-performance microservices, and robust data pipelines. Expert in Python, cloud technologies, and database optimization.
+
+TECHNICAL SKILLS
+* Languages: Python, Go, SQL, HTML/CSS, Bash
+* Frameworks: FastAPI, Flask, gRPC, Django
+* Databases & Caching: PostgreSQL, Redis, MongoDB, Elasticsearch
+* Devops & Cloud: Docker, Kubernetes, AWS (EC2, S3, RDS), CI/CD (GitHub Actions)
+* Data Engineering: Apache Spark, ETL Pipelines, Pandas
+
+PROFESSIONAL EXPERIENCE
+Lead Software Engineer | TechCorp (Jan 2023 - Present)
+* Designed and implemented a high-throughput microservices architecture using Python, FastAPI, and gRPC, improving system latency by 35%.
+* Built and optimized a distributed caching strategy using Redis, reducing core database read loads by 40%.
+* Spearheaded migration of legacy monolithic apps to containerized environments using Docker and Kubernetes.
+* Mentored 4 junior and mid-level engineers, establishing coding standards and CI/CD pipelines.
+
+Software Engineer | DataInc (Jun 2020 - Jan 2023)
+* Developed and maintained distributed ETL data pipelines using Apache Spark, processing over 10TB of data daily.
+* Designed relational schemas and optimized queries in PostgreSQL, achieving a 20% database performance boost.
+* Wrote clean, well-tested Python APIs (Flask) integrated with third-party payment gateways.
+
+EDUCATION
+BS in Computer Science | State University (2016 - 2020)
+* GPA: 3.8/4.0
+* Relevant coursework: Data Structures, Algorithms, Distributed Systems, Database Management Systems
