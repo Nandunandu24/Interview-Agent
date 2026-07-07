@@ -34,12 +34,12 @@ The application is structured as a client-server architecture:
 
 ```mermaid
 graph TD
-    subgraph Client Layer
+    subgraph client["Client Layer"]
         A["Streamlit Web UI (app.py)"]
         B["Terminal CLI (cli.py)"]
     end
 
-    subgraph Backend Layer (FastAPI - server.py)
+    subgraph backend["Backend Layer (FastAPI - server.py)"]
         C["API Router (Endpoints)"]
         D["Resume Parser"]
         E["Question Engine"]
