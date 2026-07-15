@@ -996,10 +996,20 @@ else:
             """.replace("QUESTION_ID_PLACEHOLDER", f"{st.session_state.fresh_asked}_{len(st.session_state.history)}").replace("QUESTION_INDEX_PLACEHOLDER", f"{st.session_state.fresh_asked}")
             st.components.v1.html(stt_html, height=180)
 
-        # Bind text area to st.session_state.current_transcript_buffer
+        # Initialize buffer if not exists
+        if "current_transcript_buffer" not in st.session_state:
+            st.session_state.current_transcript_buffer = ""
+
+        # Sync the widget value to the buffer if it exists
+        widget_key = f"answer_input_widget_{st.session_state.current_question_index}"
+        if widget_key in st.session_state:
+            st.session_state.current_transcript_buffer = st.session_state[widget_key]
+
+        # Render the text area using the dynamic widget key
         candidate_answer = st.text_area(
             "Type or paste your answer here:", 
-            key="current_transcript_buffer", 
+            value=st.session_state.current_transcript_buffer,
+            key=widget_key, 
             height=150
         )
         
