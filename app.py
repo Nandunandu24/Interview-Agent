@@ -277,6 +277,37 @@ st.sidebar.markdown("<h3 style='font-family:Outfit; font-weight:600;'>Voice Sett
 st.session_state.tts_active = st.sidebar.checkbox("Interviewer TTS (Read Aloud)", value=st.session_state.tts_active)
 st.session_state.stt_active = st.sidebar.checkbox("Candidate STT (Voice Input Panel)", value=st.session_state.stt_active)
 
+# Past Sessions Log Viewer in Sidebar
+st.sidebar.markdown("---")
+with st.sidebar.expander("📜 Past Attempted Sessions (JSON)"):
+    try:
+        if server_online:
+            res = requests.get(f"{API_URL}/sessions", timeout=2)
+            if res.status_code == 200:
+                past_sessions = res.json().get("sessions", [])
+                if past_sessions:
+                    for s in past_sessions[:5]:
+                        st.markdown(f"**{s['role']}** (`{s['experience_level']}`)")
+                        st.caption(f"⭐ Score: {s['overall_score']}/100 | Verdict: {s['verdict']}")
+                        st.caption(f"📅 {s['timestamp'][:16].replace('T', ' ')}")
+                        
+                        session_id = s["session_id"]
+                        json_res = requests.get(f"{API_URL}/session/{session_id}", timeout=2)
+                        if json_res.status_code == 200:
+                            json_str = json.dumps(json_res.json(), indent=2)
+                            st.download_button(
+                                label=f"📥 Download {session_id}.json",
+                                data=json_str,
+                                file_name=f"{session_id}.json",
+                                mime="application/json",
+                                key=f"dl_btn_{session_id}"
+                            )
+                        st.markdown("---")
+                else:
+                    st.write("No past sessions found yet.")
+    except Exception:
+        st.write("Sessions saved locally in `data/sessions/`.")
+
 # Session Countdown Timer in Sidebar
 if st.session_state.interview_started and not st.session_state.interview_completed:
     st.sidebar.markdown("---")
@@ -419,16 +450,20 @@ def save_session_streamlit():
     sessions_dir = os.path.join("data", "sessions")
     os.makedirs(sessions_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_id = f"session_{timestamp}"
     
-    json_path = os.path.join(sessions_dir, f"session_{timestamp}.json")
-    md_path = os.path.join(sessions_dir, f"session_{timestamp}.md")
+    json_path = os.path.join(sessions_dir, f"{session_id}.json")
+    md_path = os.path.join(sessions_dir, f"{session_id}.md")
     
     transcript_data = {
+        "session_id": session_id,
         "role": st.session_state.target_role,
+        "experience_level": st.session_state.experience_level,
         "timestamp": datetime.now().isoformat(),
         "history": st.session_state.history,
         "evaluation": st.session_state.evaluation
     }
+    
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(transcript_data, f, indent=2)
         

@@ -188,5 +188,37 @@ class TestInterviewAgentAPI(unittest.TestCase):
         self.assertTrue("Spark" in retrieved_spark[0] or "ETL" in retrieved_spark[0] or "10TB" in retrieved_spark[0])
         print(f"[OK] RAG engine successfully indexed {chunk_count} chunks and retrieved vector matches.")
 
+    def test_09_api_save_and_list_sessions(self):
+        """Test saving, listing, and retrieving JSON session logs."""
+        print("Testing /api/session/save, /api/sessions, and /api/session/{id} endpoints...")
+        payload = {
+            "target_role": "Backend Developer",
+            "experience_level": "Mid-Level",
+            "history": [
+                {"role": "interviewer", "content": "What is connection pooling?"},
+                {"role": "candidate", "content": "Reusing database connections.", "score": 8}
+            ],
+            "evaluation": {
+                "overall_score": 80,
+                "verdict": "Hire"
+            }
+        }
+        res_save = requests.post(f"{self.api_url}/session/save", json=payload)
+        self.assertEqual(res_save.status_code, 200)
+        data_save = res_save.json()
+        self.assertEqual(data_save["status"], "success")
+        session_id = data_save["session_id"]
+        
+        res_list = requests.get(f"{self.api_url}/sessions")
+        self.assertEqual(res_list.status_code, 200)
+        sessions_list = res_list.json()["sessions"]
+        self.assertTrue(any(s["session_id"] == session_id for s in sessions_list))
+        
+        res_get = requests.get(f"{self.api_url}/session/{session_id}")
+        self.assertEqual(res_get.status_code, 200)
+        session_data = res_get.json()
+        self.assertEqual(session_data["role"], "Backend Developer")
+        print("[OK] JSON session saving, listing, and retrieval endpoints passed.")
+
 if __name__ == "__main__":
     unittest.main()

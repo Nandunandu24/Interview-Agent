@@ -2,6 +2,7 @@ import os
 import re
 import json
 import uvicorn
+from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
@@ -761,6 +762,12 @@ class ScoreResponse(BaseModel):
     breakdown: ScoreBreakdown
     mode: str
 
+class SaveSessionRequest(BaseModel):
+    target_role: str
+    experience_level: Optional[str] = "Mid-Level"
+    history: list[dict]
+    evaluation: dict
+
 class EvaluateRequest(BaseModel):
     target_role: str
     history: list[dict]
@@ -949,7 +956,87 @@ async def api_upload_audio(file: UploadFile = File(...), question_index: int = F
             f.write(content)
         return {"status": "success", "file_path": file_path}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading audio: {str(e)}")
+
+@app.post("/api/session/save")
+def api_save_session(req: SaveSessionRequest):
+    try:
+        sessions_dir = os.path.join("data", "sessions")
+        os.makedirs(sessions_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        session_id = f"session_{timestamp}"
+        
+        json_path = os.path.join(sessions_dir, f"{session_id}.json")
+        md_path = os.path.join(sessions_dir, f"{session_id}.md")
+        
+        transcript_data = {
+            "session_id": session_id,
+            "role": req.target_role,
+            "experience_level": req.experience_level,
+            "timestamp": datetime.now().isoformat(),
+            "history": req.history,
+            "evaluation": req.evaluation
+        }
+        
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(transcript_data, f, indent=2)
+            
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "json_path": json_path,
+            "md_path": md_path,
+            "data": transcript_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save session: {str(e)}")
+
+@app.get("/api/sessions")
+def api_list_sessions():
+    try:
+        sessions_dir = os.path.join("data", "sessions")
+        if not os.path.exists(sessions_dir):
+            return {"sessions": []}
+            
+        session_files = [f for f in os.listdir(sessions_dir) if f.startswith("session_") and f.endswith(".json")]
+        sessions = []
+        for sf in session_files:
+            file_path = os.path.join(sessions_dir, sf)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    sessions.append({
+                        "session_id": data.get("session_id", sf.replace(".json", "")),
+                        "role": data.get("role", "Unknown"),
+                        "experience_level": data.get("experience_level", "Mid-Level"),
+                        "timestamp": data.get("timestamp", ""),
+                        "overall_score": data.get("evaluation", {}).get("overall_score", 0),
+                        "verdict": data.get("evaluation", {}).get("verdict", "N/A"),
+                        "question_count": len([t for t in data.get("history", []) if t.get("role") == "interviewer"]),
+                        "file_path": file_path
+                    })
+            except Exception:
+                pass
+                
+        sessions.sort(key=lambda x: x["timestamp"], reverse=True)
+        return {"sessions": sessions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list sessions: {str(e)}")
+
+@app.get("/api/session/{session_id}")
+def api_get_session(session_id: str):
+    try:
+        sessions_dir = os.path.join("data", "sessions")
+        json_path = os.path.join(sessions_dir, f"{session_id}.json")
+        if not os.path.exists(json_path):
+            raise HTTPException(status_code=404, detail="Session not found")
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading session: {str(e)}")
 
 if __name__ == "__main__":
     print("Starting FastAPI backend server locally...")
