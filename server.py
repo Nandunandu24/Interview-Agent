@@ -746,6 +746,7 @@ class ScoreRequest(BaseModel):
     question: str
     answer: str
     target_role: str
+    experience_level: Optional[str] = Field(default="Mid-Level", description="Candidate experience level calibration")
 
 class ScoreBreakdown(BaseModel):
     relevance: str
@@ -763,6 +764,7 @@ class ScoreResponse(BaseModel):
 class EvaluateRequest(BaseModel):
     target_role: str
     history: list[dict]
+    experience_level: Optional[str] = Field(default="Mid-Level", description="Candidate experience level calibration")
 
 class DimensionEvaluation(BaseModel):
     score: int
@@ -877,9 +879,10 @@ def api_follow_up(req: FollowUpRequest):
 
 @app.post("/api/score", response_model=ScoreResponse)
 def api_score(req: ScoreRequest):
+    exp_level = req.experience_level if req.experience_level else "Mid-Level"
     if check_api_keys():
         try:
-            res = score_answer(req.question, req.answer, req.target_role)
+            res = score_answer(req.question, req.answer, req.target_role, experience_level=exp_level)
             return {
                 "score": res["score"],
                 "is_weak": res["is_weak"],
@@ -901,9 +904,10 @@ def api_score(req: ScoreRequest):
 
 @app.post("/api/evaluate", response_model=EvaluateResponse)
 def api_evaluate(req: EvaluateRequest):
+    exp_level = req.experience_level if req.experience_level else "Mid-Level"
     if check_api_keys():
         try:
-            res = generate_evaluation(req.target_role, req.history)
+            res = generate_evaluation(req.target_role, req.history, experience_level=exp_level)
             return {
                 "overall_score": res["overall_score"],
                 "scoring_formula": res["scoring_formula"],

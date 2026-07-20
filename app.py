@@ -647,7 +647,8 @@ else:
                                 res = requests.post(f"{API_URL}/score", json={
                                     "question": q_text,
                                     "answer": new_ans,
-                                    "target_role": st.session_state.target_role
+                                    "target_role": st.session_state.target_role,
+                                    "experience_level": st.session_state.experience_level
                                 })
                                 res.raise_for_status()
                                 score_res = res.json()
@@ -662,7 +663,8 @@ else:
                         # Call API evaluate endpoint
                         res = requests.post(f"{API_URL}/evaluate", json={
                             "target_role": st.session_state.target_role,
-                            "history": st.session_state.history
+                            "history": st.session_state.history,
+                            "experience_level": st.session_state.experience_level
                         })
                         res.raise_for_status()
                         evaluation = res.json()
@@ -713,7 +715,8 @@ else:
                             
                     res = requests.post(f"{API_URL}/evaluate", json={
                         "target_role": st.session_state.target_role,
-                        "history": st.session_state.history
+                        "history": st.session_state.history,
+                        "experience_level": st.session_state.experience_level
                     })
                     res.raise_for_status()
                     evaluation = res.json()
@@ -1089,7 +1092,8 @@ else:
                             res = requests.post(f"{API_URL}/score", json={
                                 "question": st.session_state.current_question,
                                 "answer": candidate_answer,
-                                "target_role": st.session_state.target_role
+                                "target_role": st.session_state.target_role,
+                                "experience_level": st.session_state.experience_level
                             })
                             res.raise_for_status()
                             score_res = res.json()

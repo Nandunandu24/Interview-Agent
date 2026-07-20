@@ -28,16 +28,16 @@ class FinalEvaluation(BaseModel):
     detailed_technical: DetailedTechnical
     feedback: FeedbackBlock
 
-def generate_evaluation(target_role: str, history: list) -> dict:
+def generate_evaluation(target_role: str, history: list, experience_level: str = "Mid-Level") -> dict:
     """
-    Analyzes the interview history and generates a comprehensive final evaluation.
+    Analyzes the interview history and generates a comprehensive final evaluation calibrated to the target role and experience level.
     """
     # Calculate simple math for average of scores
     valid_scores = [turn["score"] for turn in history if "score" in turn]
     avg_score_10 = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
     computed_overall_score = round(avg_score_10 * 10) # convert to 0-100
     
-    # We pass the history and calculated score to the LLM to get detailed qualitative insights.
+    # Format history and calculated score for prompt
     history_str = ""
     for idx, turn in enumerate(history):
         if turn["role"] == "interviewer":
@@ -48,7 +48,10 @@ def generate_evaluation(target_role: str, history: list) -> dict:
             history_str += f"Candidate: {turn['content']}\n(Score: {score}/10 | Feedback: {justification})\n\n"
 
     prompt = f"""
-You are an expert AI Technical Interview Evaluator. Your task is to analyze the provided interview transcript for the role "{target_role}" and generate a highly structured, objective, and actionable Candidate Assessment Report.
+You are an expert AI Technical Interview Evaluator. Your task is to analyze the provided interview transcript for the role "{target_role}" at the "{experience_level}" level and generate a highly structured, objective, and actionable Candidate Assessment Report.
+
+Target Role: {target_role}
+Candidate Experience Level: {experience_level}
 
 Interview Transcript with Scores:
 {history_str}
@@ -56,34 +59,39 @@ Interview Transcript with Scores:
 Computed Overall Score: {computed_overall_score} out of 100
 Formula: (Average of all question scores) * 10
 
+EVALUATION CALIBRATION RULES FOR {experience_level.upper()} LEVEL:
+- If JUNIOR: Assess whether candidate demonstrated solid core understanding, correct basic logic, and clean explanation of foundational concepts. Do not dock points for lacking enterprise architecture or complex scale/failover trade-offs.
+- If MID-LEVEL: Assess production readiness, concrete library/tool usage, error handling, performance optimization, and testing practices.
+- If SENIOR: Assess architectural design choices, system scalability under peak load, failover resilience, security compliance, and leadership/trade-off context.
+
 Task:
 Generate a final assessment matching the following exact JSON structure:
 {{
   "verdict": "Strong Hire | Hire | No Hire",
-  "key_strengths": "1-2 sentences summarizing major highlights.",
-  "growth_areas": "1-2 sentences summarizing biggest gaps.",
+  "key_strengths": "1-2 sentences summarizing major highlights relative to {experience_level} expectations.",
+  "growth_areas": "1-2 sentences summarizing biggest technical or communication gaps for a {experience_level} engineer.",
   
   "communication_skills": {{
     "score": 4,
-    "evidence": "Specific, verbatim text or conceptual evidence from the transcript to back up the score."
+    "evidence": "Specific verbatim text or conceptual evidence from the transcript to back up the score."
   }},
   "technical_depth": {{
     "score": 3,
-    "evidence": "Specific code, logic, or system design decisions they made, noting accuracy or gaps."
+    "evidence": "Evaluation of technical accuracy, depth, and domain knowledge demonstrated, explicitly noting if it meets {experience_level} standards for {target_role}."
   }},
   "problem_solving_adaptability": {{
     "score": 3,
-    "evidence": "How they handled hints, constraints, or initially approached the problem."
+    "evidence": "How they handled hints, follow-up constraints, or initially approached the problem."
   }},
   
   "detailed_technical": {{
-    "accuracy": "Did they solve the core problem correctly? Note any bugs or logical fallacies.",
-    "optimization": "Did they discuss time/space complexity or system design trade-offs? Quote their reasoning.",
-    "edge_cases": "Did they proactively consider constraints or fail to see blind spots?"
+    "accuracy": "Did they solve the core technical problems correctly? Note any bugs, misconceptions, or strong answers.",
+    "optimization": "Did they discuss complexity, performance, or system design trade-offs appropriate for a {experience_level} candidate?",
+    "edge_cases": "Did they consider constraints or fail to see blind spots relative to {experience_level} standards?"
   }},
   
   "feedback": {{
-    "candidate": "Concrete advice on what they should study, how they can structure their answers better, or technical gaps to close.",
+    "candidate": "Concrete advice on what they should study, how they can structure their answers better, or technical gaps to close for a {experience_level} candidate.",
     "hiring_team": "Specific suggestions on what to double-check or dive deeper into during a subsequent live round, based on weak spots spotted by the agent."
   }}
 }}

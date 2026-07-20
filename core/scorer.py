@@ -15,40 +15,52 @@ class AnswerScore(BaseModel):
     justification: str = Field(description="Summary justification for the overall score.")
     breakdown: ScorerBreakdown
 
-def score_answer(question: str, answer: str, target_role: str) -> dict:
+def score_answer(question: str, answer: str, target_role: str, experience_level: str = "Mid-Level") -> dict:
     """
     Evaluates a candidate's answer to a specific interview question.
+    Calibrates expectations based on target role and candidate experience level (Junior / Mid-Level / Senior).
+    Compares response against expected technical domain knowledge.
     Returns a dictionary matching the AnswerScore schema.
     """
     prompt = f"""
-You are an expert technical interviewer for the role: "{target_role}".
-Evaluate the candidate's answer to the given question based on these four criteria:
-1. Relevance: Did they answer the actual question?
-2. Correctness/Depth: Is the explanation technically correct, sound, and deep?
-3. Clarity: Is the response well-articulated, clear, and easy to follow?
-4. Specificity/Evidence: Did they mention concrete technologies, metrics, examples, or experiences?
+You are an expert technical interviewer evaluating a candidate for the role: "{target_role}" at the "{experience_level}" level.
 
-Question:
+Task:
+Evaluate the candidate's answer to the given question by cross-checking it against expected domain knowledge for a {experience_level} {target_role}.
+
+Question Asked:
 {question}
 
 Candidate's Answer:
 {answer}
 
-Task:
-Provide a score between 0 and 10.
-Decide if the answer is weak (is_weak = true if score < 5). An answer is weak if it is extremely brief, misses the core technical point, is vague, or lacks details.
-Break down your evaluation for all four criteria.
+EXPERIENCE LEVEL SCORING CALIBRATION ({experience_level}):
+- If JUNIOR: Expect foundational understanding, core syntax/logic, and clean explanation of basic steps. Do NOT penalize for lacking enterprise architecture or complex scale/failover trade-offs.
+- If MID-LEVEL: Expect production-readiness, concrete framework/library usage, error handling, performance optimization, and testing practices.
+- If SENIOR: Expect architectural design decisions, system scalability under peak load, failover strategies, security compliance, and leadership/trade-off context.
+
+CRITERIA BREAKDOWN:
+1. Relevance: Did they directly address the core technical question?
+2. Correctness/Depth: Is the answer technically sound, accurate, and aligned with expected {experience_level} domain concepts? Compare with what an ideal {experience_level} candidate would explain.
+3. Clarity: Is the response well-structured, clear, and easy to follow?
+4. Specificity/Evidence: Did they mention concrete technologies, metrics, examples, or experiences appropriate for their level?
+
+TASK DETAILS:
+- Provide an overall score between 0 and 10 calibrated to {experience_level} expectations.
+- Set is_weak = true if score < 5 (if the answer is vague, off-topic, or missing basic expected concepts).
+- In 'justification', provide a clear technical summary of why this score was awarded and what was expected.
+- In 'breakdown', provide specific feedback for relevance, correctness_depth, clarity, and specificity_evidence.
 
 Return ONLY a valid JSON object matching the following schema:
 {{
   "score": 7,
   "is_weak": false,
-  "justification": "A summary explanation of the evaluation.",
+  "justification": "A summary explanation comparing the answer against expected {experience_level} concepts.",
   "breakdown": {{
     "relevance": "Specific feedback on how well the candidate addressed the question.",
-    "correctness_depth": "Feedback on technical accuracy and depth of concepts mentioned.",
+    "correctness_depth": "Evaluation of technical accuracy and depth compared to expected {experience_level} concepts.",
     "clarity": "Feedback on communication style, structure, and readability.",
-    "specificity_evidence": "Feedback on concrete examples, data points, or technologies used."
+    "specificity_evidence": "Feedback on concrete examples, tools, metrics, or technologies used."
   }}
 }}
 
