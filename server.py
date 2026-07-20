@@ -718,6 +718,7 @@ class ParseResponse(BaseModel):
     summary: str
     experience_level: str = "Mid-Level"
     mode: str = Field(description="Recruiter backend execution mode: 'online' or 'offline'")
+    rag_chunks_count: int = 0
 
 class FirstQuestionRequest(BaseModel):
     resume_text: str
@@ -800,6 +801,9 @@ def api_parse(req: ParseRequest):
     try:
         text = parse_resume(req.file_path)
         offline_info = extract_resume_info_offline(text)
+        from core.rag_engine import ResumeRAG
+        rag = ResumeRAG(text)
+        rag_count = rag.get_indexed_chunk_count()
         
         if check_api_keys():
             try:
@@ -810,7 +814,8 @@ def api_parse(req: ParseRequest):
                     "skills": inferred.get("skills", []),
                     "summary": inferred.get("summary", ""),
                     "experience_level": offline_info["experience_level"],
-                    "mode": "online"
+                    "mode": "online",
+                    "rag_chunks_count": rag_count
                 }
             except Exception:
                 pass
@@ -821,7 +826,8 @@ def api_parse(req: ParseRequest):
             "skills": offline_info["skills"],
             "summary": offline_info["summary"],
             "experience_level": offline_info["experience_level"],
-            "mode": "offline"
+            "mode": "offline",
+            "rag_chunks_count": rag_count
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")

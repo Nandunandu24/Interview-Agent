@@ -163,5 +163,30 @@ class TestInterviewAgentAPI(unittest.TestCase):
             os.remove(target_path)
         print("[OK] /api/upload_audio uploaded and stored file successfully.")
 
+    def test_08_rag_vector_search(self):
+        """Test the RAG engine chunking and vector similarity retrieval."""
+        print("Testing RAG vector engine...")
+        from core.rag_engine import ResumeRAG
+        sample_resume = """
+        JANE DOE
+        Lead Backend Developer at TechCorp.
+        
+        EXPERIENCE:
+        Designed high-throughput microservices using Python, FastAPI, and gRPC.
+        Resolved database connection pool bottlenecks using SQLAlchemy and Redis caching.
+        
+        PROJECTS:
+        Equilibria - Dynamic Supply Chain Decision Engine built with Kafka and Apache Spark.
+        Optimized ETL pipelines handling over 10TB of daily data stream using partition salting.
+        """
+        rag = ResumeRAG(sample_resume)
+        chunk_count = rag.get_indexed_chunk_count()
+        self.assertGreater(chunk_count, 0)
+        
+        retrieved_spark = rag.query("Apache Spark ETL pipelines 10TB data", top_k=1)
+        self.assertEqual(len(retrieved_spark), 1)
+        self.assertTrue("Spark" in retrieved_spark[0] or "ETL" in retrieved_spark[0] or "10TB" in retrieved_spark[0])
+        print(f"[OK] RAG engine successfully indexed {chunk_count} chunks and retrieved vector matches.")
+
 if __name__ == "__main__":
     unittest.main()

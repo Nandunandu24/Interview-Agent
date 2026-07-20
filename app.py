@@ -260,6 +260,7 @@ if "initialized" not in st.session_state:
     st.session_state.start_time = None
     st.session_state.end_time = None
     st.session_state.experience_level = "Mid-Level"
+    st.session_state.rag_chunks_count = 0
 
 # ----------------- SIDEBAR CONFIG -----------------
 st.sidebar.markdown("<h2 style='font-family:Outfit; font-weight:700; color:#38BDF8;'>💼 HireAI Config</h2>", unsafe_allow_html=True)
@@ -340,8 +341,11 @@ if uploaded_file is not None and not st.session_state.interview_started and serv
             st.session_state.summary = data["summary"]
             st.session_state.experience_level = data.get("experience_level", "Mid-Level")
             st.session_state.backend_mode = data.get("mode", "offline")
+            st.session_state.rag_chunks_count = data.get("rag_chunks_count", 0)
             
             st.sidebar.success(f"Resume parsed successfully! ({st.session_state.backend_mode.upper()} mode)")
+            if st.session_state.rag_chunks_count > 0:
+                st.sidebar.info(f"⚡ RAG Active: {st.session_state.rag_chunks_count} Vector Chunks Indexed")
         except Exception as e:
             st.sidebar.error(f"Error parsing resume via server: {e}")
             
