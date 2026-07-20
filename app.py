@@ -807,22 +807,37 @@ else:
             }
             
             let recognition;
-            
             let mediaRecorder;
             let audioChunks = [];
+            let isListeningState = false;
 
             function safeStartRecognition() {
                 if (isManuallyStopped) return;
                 try {
                     recognition.start();
+                    isListeningState = true;
                     status.innerText = "Listening...";
+                    btn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
                 } catch(err) {
-                    console.log("Recognition start deferred:", err.message);
-                    if (err.name === 'InvalidStateError' || err.message.includes('already started')) {
-                        setTimeout(safeStartRecognition, 100);
+                    if (err.name === 'InvalidStateError' || (err.message && err.message.includes('already started'))) {
+                        isListeningState = true;
+                    } else {
+                        console.log("Recognition start retry scheduled:", err.message);
+                        setTimeout(safeStartRecognition, 150);
                     }
                 }
             }
+
+            // Watchdog heartbeat: auto-restarts recognition if browser drops connection during silence/pauses
+            setInterval(() => {
+                if (!isManuallyStopped && !isListeningState) {
+                    console.log("Watchdog: Auto-reconnecting speech listener after pause...");
+                    accumulatedTranscript = getCleanText();
+                    sessionStorage.setItem('stt_accumulated_transcript', accumulatedTranscript);
+                    safeStartRecognition();
+                }
+            }, 800);
 
             function triggerParentSubmit() {
                 try {
@@ -892,6 +907,7 @@ else:
                 recognition.lang = 'en-US';
                 
                 recognition.onstart = () => {
+                    isListeningState = true;
                     status.innerText = "Listening...";
                     btn.style.display = 'none';
                     stopBtn.style.display = 'inline-block';
@@ -907,17 +923,18 @@ else:
                             interimTranscript += event.results[i][0].transcript;
                         }
                     }
-                    const currentSessionText = finalTranscript + interimTranscript;
-                    const text = (accumulatedTranscript + " " + currentSessionText).trim();
-                    result.innerText = text;
-                    sessionStorage.setItem('stt_accumulated_transcript', text);
-                    syncToStreamlit(text, false);
+                    const currentSessionText = (finalTranscript + " " + interimTranscript).trim();
+                    const fullText = accumulatedTranscript ? (accumulatedTranscript + " " + currentSessionText).trim() : currentSessionText;
+                    result.innerText = fullText;
+                    sessionStorage.setItem('stt_accumulated_transcript', fullText);
+                    syncToStreamlit(fullText, false);
                 };
                 
                 recognition.onerror = (e) => {
                     console.error("Speech recognition error: ", e.error);
                     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
                         isManuallyStopped = true;
+                        isListeningState = false;
                         sessionStorage.setItem('stt_is_manually_stopped', 'true');
                         status.innerText = "Permission/Service Error: " + e.error;
                         btn.style.display = 'inline-block';
@@ -926,19 +943,20 @@ else:
                             mediaRecorder.stop();
                         }
                     } else {
-                        // Recoverable errors (no-speech, network timeouts, aborted) are handled by self-healing onend
+                        isListeningState = false;
                         console.log("Recoverable speech error: " + e.error + ", auto-restarting...");
                     }
                 };
                 
                 recognition.onend = () => {
+                    isListeningState = false;
                     accumulatedTranscript = getCleanText();
                     sessionStorage.setItem('stt_accumulated_transcript', accumulatedTranscript);
                     
                     if (!isManuallyStopped) {
-                        status.innerText = "Listening (resuming)...";
+                        status.innerText = "Listening (auto-resuming)...";
                         syncToStreamlit(accumulatedTranscript, false);
-                        safeStartRecognition();
+                        setTimeout(safeStartRecognition, 100);
                     } else {
                         status.innerText = "Listening completed & synchronized.";
                         btn.style.display = 'inline-block';
