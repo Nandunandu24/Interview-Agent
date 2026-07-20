@@ -366,7 +366,13 @@ def trigger_speech(text):
         utterance.rate = 1.08;
         utterance.pitch = 1.0;
         
+        let hasSpoken = false;
+        
         function setVoiceAndSpeak() {{
+            if (hasSpoken) return;
+            hasSpoken = true;
+            window.speechSynthesis.onvoiceschanged = null;
+            
             const voices = window.speechSynthesis.getVoices();
             if (voices && voices.length > 0) {{
                 const chosenVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural") || v.name.includes("Zira") || v.lang === "en-US") || voices[0];
@@ -389,6 +395,7 @@ def trigger_speech(text):
                 }}
             }};
             
+            window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
         }}
 
@@ -398,7 +405,7 @@ def trigger_speech(text):
             window.speechSynthesis.onvoiceschanged = () => {{
                 setVoiceAndSpeak();
             }};
-            setTimeout(setVoiceAndSpeak, 100);
+            setTimeout(setVoiceAndSpeak, 150);
         }}
     }}
     speakText();
