@@ -359,16 +359,49 @@ def trigger_speech(text):
     encoded_text = urllib.parse.quote(text)
     html_code = f"""
     <script>
-    window.speechSynthesis.cancel();
-    const textToSpeak = decodeURIComponent("{encoded_text}");
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.rate = 1.0;
-    const voices = window.speechSynthesis.getVoices();
-    const chosenVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Zira") || v.lang === "en-US") || voices[0];
-    if(chosenVoice) {{
-        utterance.voice = chosenVoice;
+    function speakText() {{
+        window.speechSynthesis.cancel();
+        const textToSpeak = decodeURIComponent("{encoded_text}");
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.rate = 1.08;
+        utterance.pitch = 1.0;
+        
+        function setVoiceAndSpeak() {{
+            const voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {{
+                const chosenVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural") || v.name.includes("Zira") || v.lang === "en-US") || voices[0];
+                if (chosenVoice) {{
+                    utterance.voice = chosenVoice;
+                }}
+            }}
+            
+            utterance.onend = () => {{
+                try {{
+                    const parentDoc = window.parent.document;
+                    const iframes = parentDoc.querySelectorAll("iframe");
+                    iframes.forEach(iframe => {{
+                        try {{
+                            iframe.contentWindow.postMessage({{ type: "TTS_SPEECH_ENDED" }}, "*");
+                        }} catch(e) {{}}
+                    }});
+                }} catch(err) {{
+                    console.log("TTS end event notify error:", err);
+                }}
+            }};
+            
+            window.speechSynthesis.speak(utterance);
+        }}
+
+        if (window.speechSynthesis.getVoices().length > 0) {{
+            setVoiceAndSpeak();
+        }} else {{
+            window.speechSynthesis.onvoiceschanged = () => {{
+                setVoiceAndSpeak();
+            }};
+            setTimeout(setVoiceAndSpeak, 100);
+        }}
     }}
-    window.speechSynthesis.speak(utterance);
+    speakText();
     </script>
     """
     import streamlit.components.v1 as components
@@ -986,6 +1019,15 @@ else:
                     status.innerText = "Speech loaded from session.";
                 }
                 
+                window.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === "TTS_SPEECH_ENDED") {
+                        console.log("TTS speech ended signal received. Auto-activating STT dictation...");
+                        if (btn && btn.style.display !== 'none') {
+                            btn.click();
+                        }
+                    }
+                });
+
                 window.addEventListener('beforeunload', () => {
                     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                         mediaRecorder.stop();
