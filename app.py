@@ -959,16 +959,16 @@ else:
                 };
                 
                 recognition.onresult = (event) => {
-                    let interimTranscript = '';
-                    let finalTranscript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    let sessionFinal = '';
+                    let sessionInterim = '';
+                    for (let i = 0; i < event.results.length; ++i) {
                         if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript;
+                            sessionFinal += event.results[i][0].transcript + ' ';
                         } else {
-                            interimTranscript += event.results[i][0].transcript;
+                            sessionInterim += event.results[i][0].transcript;
                         }
                     }
-                    const currentSessionText = (finalTranscript + " " + interimTranscript).trim();
+                    const currentSessionText = (sessionFinal + sessionInterim).trim();
                     const fullText = accumulatedTranscript ? (accumulatedTranscript + " " + currentSessionText).trim() : currentSessionText;
                     result.innerText = fullText;
                     sessionStorage.setItem('stt_accumulated_transcript', fullText);
