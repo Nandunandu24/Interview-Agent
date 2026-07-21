@@ -134,6 +134,7 @@ class TestInterviewAgentAPI(unittest.TestCase):
         self.assertIn("growth_areas", data)
         self.assertIn("communication_skills", data)
         self.assertIn("technical_depth", data)
+        self.assertIn("topic_knowledge", data)
         self.assertIn("problem_solving_adaptability", data)
         print("[OK] /api/evaluate generated structured assessment report.")
 

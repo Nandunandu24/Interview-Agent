@@ -19,11 +19,12 @@ class FeedbackBlock(BaseModel):
 class FinalEvaluation(BaseModel):
     overall_score: int = Field(description="Overall interview score on a scale of 0 to 100.")
     scoring_formula: str = Field(description="The formula used to calculate overall_score.")
-    verdict: str = Field(description="Overall verdict: 'Strong Hire', 'Hire', or 'No Hire'.")
+    verdict: str = Field(description="Overall verdict: 'Strong Hire', 'Hire', 'Borderline', or 'No Hire'.")
     key_strengths: str = Field(description="1-2 sentences summarizing major highlights.")
     growth_areas: str = Field(description="1-2 sentences summarizing biggest gaps.")
     communication_skills: DimensionEvaluation
     technical_depth: DimensionEvaluation
+    topic_knowledge: DimensionEvaluation
     problem_solving_adaptability: DimensionEvaluation
     detailed_technical: DetailedTechnical
     feedback: FeedbackBlock
@@ -59,6 +60,12 @@ Interview Transcript with Scores:
 Computed Overall Score: {computed_overall_score} out of 100
 Formula: (Average of all question scores) * 10
 
+VERDICT CALIBRATION RULES BASED ON OVERALL SCORE ({computed_overall_score}/100):
+- Score >= 80: "Strong Hire" (Demonstrates exceptional technical depth, communication fluency, and topic mastery).
+- Score 68 - 79: "Hire" (Meets expectations with solid technical accuracy and clear communication).
+- Score 50 - 67: "Borderline" (Requires further live evaluation; candidate demonstrated partial topic knowledge or clarity gaps).
+- Score < 50: "No Hire" (Significant technical, communication, or topic mastery gaps).
+
 EVALUATION CALIBRATION RULES FOR {experience_level.upper()} LEVEL:
 - If JUNIOR: Assess whether candidate demonstrated solid core understanding, correct basic logic, and clean explanation of foundational concepts. Do not dock points for lacking enterprise architecture or complex scale/failover trade-offs.
 - If MID-LEVEL: Assess production readiness, concrete library/tool usage, error handling, performance optimization, and testing practices.
@@ -67,21 +74,25 @@ EVALUATION CALIBRATION RULES FOR {experience_level.upper()} LEVEL:
 Task:
 Generate a final assessment matching the following exact JSON structure:
 {{
-  "verdict": "Strong Hire | Hire | No Hire",
+  "verdict": "Strong Hire | Hire | Borderline | No Hire",
   "key_strengths": "1-2 sentences summarizing major highlights relative to {experience_level} expectations.",
   "growth_areas": "1-2 sentences summarizing biggest technical or communication gaps for a {experience_level} engineer.",
   
   "communication_skills": {{
     "score": 4,
-    "evidence": "Specific verbatim text or conceptual evidence from the transcript to back up the score."
+    "evidence": "Evaluation of articulation, clarity, fluency, and communication style based on transcript."
   }},
   "technical_depth": {{
     "score": 3,
-    "evidence": "Evaluation of technical accuracy, depth, and domain knowledge demonstrated, explicitly noting if it meets {experience_level} standards for {target_role}."
+    "evidence": "Evaluation of technical accuracy, depth, and design reasoning demonstrated for a {experience_level} candidate in {target_role}."
+  }},
+  "topic_knowledge": {{
+    "score": 3,
+    "evidence": "Evaluation of specific domain knowledge, technology concepts, and framework mastery demonstrated."
   }},
   "problem_solving_adaptability": {{
     "score": 3,
-    "evidence": "How they handled hints, follow-up constraints, or initially approached the problem."
+    "evidence": "How they handled follow-ups, constraints, or initially approached the technical problem."
   }},
   
   "detailed_technical": {{
@@ -96,7 +107,7 @@ Generate a final assessment matching the following exact JSON structure:
   }}
 }}
 
-Ensure the scores for communication_skills, technical_depth, and problem_solving_adaptability are from 1 to 5 (1 = Critical Gaps, 3 = Meets Expectations, 5 = Exceptional).
+Ensure scores for communication_skills, technical_depth, topic_knowledge, and problem_solving_adaptability are from 1 to 5 (1 = Critical Gaps, 3 = Meets Expectations, 5 = Exceptional).
 Return ONLY a valid JSON object matching the schema. Do not include markdown code blocks, introductory text, or conversational lines.
 """
     try:
@@ -122,6 +133,8 @@ Return ONLY a valid JSON object matching the schema. Do not include markdown cod
         rec = "Borderline"
         if computed_overall_score >= 80:
             rec = "Strong Hire"
+        elif computed_overall_score >= 68:
+            rec = "Hire"
         elif computed_overall_score < 50:
             rec = "No Hire"
             
@@ -138,6 +151,10 @@ Return ONLY a valid JSON object matching the schema. Do not include markdown cod
             "technical_depth": {
                 "score": 3,
                 "evidence": "Concepts were described but depth should be verified in code challenges."
+            },
+            "topic_knowledge": {
+                "score": 3,
+                "evidence": "Demonstrated foundational topic knowledge across the resume skills."
             },
             "problem_solving_adaptability": {
                 "score": 3,

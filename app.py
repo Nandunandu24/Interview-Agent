@@ -792,9 +792,12 @@ else:
         
         col_l, col_r = st.columns([3, 1])
         with col_l:
-            st.write(f"**Role:** `{st.session_state.target_role}` | **Mode:** `{st.session_state.backend_mode.upper()}`")
+            st.write(f"**Role:** `{st.session_state.target_role}` | **Experience:** `{st.session_state.experience_level}` | **Mode:** `{st.session_state.backend_mode.upper()}`")
         with col_r:
-            st.markdown(f"<div style='text-align:right; font-weight:600;'>Question {st.session_state.fresh_asked} of 5 (Fresh)</div>", unsafe_allow_html=True)
+            if st.session_state.last_was_weak:
+                st.markdown(f"<div style='text-align:right; font-weight:600; color: #F59E0B;'>🔍 Follow-up Question (Fresh Q{st.session_state.fresh_asked}/5)</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div style='text-align:right; font-weight:600; color: #38BDF8;'>Question {st.session_state.fresh_asked} of 5 (Fresh)</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown(f"<div class='interviewer-bubble'><b>👤 AI Interviewer:</b><br/>{st.session_state.current_question}</div>", unsafe_allow_html=True)
@@ -1277,13 +1280,14 @@ else:
         
         comm = st.session_state.evaluation.get('communication_skills', {})
         tech = st.session_state.evaluation.get('technical_depth', {})
+        topic = st.session_state.evaluation.get('topic_knowledge', {})
         prob = st.session_state.evaluation.get('problem_solving_adaptability', {})
         
-        col_c1, col_c2, col_c3 = st.columns(3)
+        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
         with col_c1:
             st.markdown(
                 f"<div style='padding:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; height:100%;'>"
-                f"<b>📢 Communication Skills:</b> {comm.get('score', 0)}/5<br/>"
+                f"<b>📢 Communication & Fluency:</b> {comm.get('score', 0)}/5<br/>"
                 f"<span style='font-size:0.85rem; color:#CBD5E1;'><i>Evidence:</i> {comm.get('evidence', 'N/A')}</span>"
                 f"</div>",
                 unsafe_allow_html=True
@@ -1299,7 +1303,15 @@ else:
         with col_c3:
             st.markdown(
                 f"<div style='padding:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; height:100%;'>"
-                f"<b>🎯 Problem-Solving & Adaptability:</b> {prob.get('score', 0)}/5<br/>"
+                f"<b>📚 Topic Knowledge:</b> {topic.get('score', 0)}/5<br/>"
+                f"<span style='font-size:0.85rem; color:#CBD5E1;'><i>Evidence:</i> {topic.get('evidence', 'N/A')}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+        with col_c4:
+            st.markdown(
+                f"<div style='padding:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; height:100%;'>"
+                f"<b>🎯 Adaptability:</b> {prob.get('score', 0)}/5<br/>"
                 f"<span style='font-size:0.85rem; color:#CBD5E1;'><i>Evidence:</i> {prob.get('evidence', 'N/A')}</span>"
                 f"</div>",
                 unsafe_allow_html=True

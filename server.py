@@ -658,6 +658,14 @@ def generate_evaluation_offline(history: list) -> dict:
         tech_score = 2
     tech_evidence = f"Aligned conceptually on {len(strong_turns)} topics. Met baseline requirements, but {weak_count} items required follow-up queries."
 
+    # Topic knowledge
+    topic_score = 3
+    if len(strong_turns) >= 2:
+        topic_score = 4
+    elif weak_count > 2:
+        topic_score = 2
+    topic_evidence = f"Demonstrated topic knowledge across key skills. {len(strong_turns)} answers showed strong mastery, while {weak_count} items required targeted follow-up."
+
     # Problem solving
     prob_score = 3
     prob_evidence = "Walked through technical questions systematically according to mock session guidelines."
@@ -678,6 +686,9 @@ def generate_evaluation_offline(history: list) -> dict:
     elif verdict == "Hire":
         strengths_summary = "Solid general understanding of engineering practices and Docker/ETL pipelines."
         gaps_summary = "Needs to focus on explaining architectural decisions, rate limits, and caching strategies."
+    elif verdict == "Borderline":
+        strengths_summary = "Demonstrated basic familiarity with software terms and core concepts."
+        gaps_summary = "Narrow margin: demonstrated partial topic knowledge or clarity gaps requiring a live deep-dive."
     else:
         strengths_summary = "Demonstrated basic familiarity with software terms and ETL workflows."
         gaps_summary = "Exhibited significant gaps in technical depth, regression modeling, and system scaling details."
@@ -695,6 +706,10 @@ def generate_evaluation_offline(history: list) -> dict:
         "technical_depth": {
             "score": tech_score,
             "evidence": tech_evidence
+        },
+        "topic_knowledge": {
+            "score": topic_score,
+            "evidence": topic_evidence
         },
         "problem_solving_adaptability": {
             "score": prob_score,
@@ -799,6 +814,7 @@ class EvaluateResponse(BaseModel):
     growth_areas: str
     communication_skills: DimensionEvaluation
     technical_depth: DimensionEvaluation
+    topic_knowledge: DimensionEvaluation
     problem_solving_adaptability: DimensionEvaluation
     detailed_technical: DetailedTechnical
     feedback: FeedbackBlock
@@ -928,6 +944,7 @@ def api_evaluate(req: EvaluateRequest):
                 "growth_areas": res["growth_areas"],
                 "communication_skills": res["communication_skills"],
                 "technical_depth": res["technical_depth"],
+                "topic_knowledge": res["topic_knowledge"],
                 "problem_solving_adaptability": res["problem_solving_adaptability"],
                 "detailed_technical": res["detailed_technical"],
                 "feedback": res["feedback"],
@@ -945,6 +962,7 @@ def api_evaluate(req: EvaluateRequest):
         "growth_areas": res["growth_areas"],
         "communication_skills": res["communication_skills"],
         "technical_depth": res["technical_depth"],
+        "topic_knowledge": res["topic_knowledge"],
         "problem_solving_adaptability": res["problem_solving_adaptability"],
         "detailed_technical": res["detailed_technical"],
         "feedback": res["feedback"],
