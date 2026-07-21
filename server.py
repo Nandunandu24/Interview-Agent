@@ -783,11 +783,13 @@ class SaveSessionRequest(BaseModel):
     experience_level: Optional[str] = "Mid-Level"
     history: list[dict]
     evaluation: dict
+    tab_switches: Optional[int] = Field(default=0, description="Number of detected window/tab switches")
 
 class EvaluateRequest(BaseModel):
     target_role: str
     history: list[dict]
     experience_level: Optional[str] = Field(default="Mid-Level", description="Candidate experience level calibration")
+    tab_switches: Optional[int] = Field(default=0, description="Number of detected window/tab switches")
 
 class DimensionEvaluation(BaseModel):
     score: int
@@ -929,9 +931,10 @@ def api_score(req: ScoreRequest):
 @app.post("/api/evaluate", response_model=EvaluateResponse)
 def api_evaluate(req: EvaluateRequest):
     exp_level = req.experience_level if req.experience_level else "Mid-Level"
+    switches = req.tab_switches if req.tab_switches else 0
     if check_api_keys():
         try:
-            res = generate_evaluation(req.target_role, req.history, experience_level=exp_level)
+            res = generate_evaluation(req.target_role, req.history, experience_level=exp_level, tab_switches=switches)
             return {
                 "overall_score": res["overall_score"],
                 "scoring_formula": res["scoring_formula"],

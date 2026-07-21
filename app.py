@@ -261,6 +261,13 @@ if "initialized" not in st.session_state:
     st.session_state.end_time = None
     st.session_state.experience_level = "Mid-Level"
     st.session_state.rag_chunks_count = 0
+    st.session_state.tab_switches = 0
+
+try:
+    if "tab_switches" in st.query_params:
+        st.session_state.tab_switches = int(st.query_params["tab_switches"])
+except Exception:
+    pass
 
 # ----------------- SIDEBAR CONFIG -----------------
 st.sidebar.markdown("<h2 style='font-family:Outfit; font-weight:700; color:#38BDF8;'>💼 HireAI Config</h2>", unsafe_allow_html=True)
@@ -345,6 +352,13 @@ if st.session_state.interview_started and not st.session_state.interview_complet
     with st.sidebar:
         import streamlit.components.v1 as components
         components.html(timer_html, height=95)
+        st.markdown(
+            f"<div style='background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px; font-size: 0.85rem; color: #FCD34D; margin-top: 10px;'>"
+            f"<b>🔒 Proctoring Audit: ACTIVE</b><br/>"
+            f"⚠️ Tab Switches Detected: {st.session_state.tab_switches}"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Upload Resume")
@@ -445,6 +459,77 @@ def trigger_speech(text):
     import streamlit.components.v1 as components
     components.html(html_code, height=0, width=0)
 
+# Helper function to inject Tab Switch Detector JS
+def render_tab_switch_detector():
+    tab_switch_html = """
+    <script>
+    (function() {
+        try {
+            const parentDoc = window.parent.document;
+            if (parentDoc._tabSwitchListenerAttached) return;
+            parentDoc._tabSwitchListenerAttached = true;
+            
+            let switchCount = parseInt(sessionStorage.getItem('stt_tab_switches') || '0');
+            
+            function notifyTabSwitch() {
+                switchCount++;
+                sessionStorage.setItem('stt_tab_switches', switchCount);
+                console.warn("⚠️ Tab switch detected! Total count:", switchCount);
+                
+                try {
+                    let currentUrl = new URL(window.parent.location.href);
+                    if (currentUrl.searchParams.get("tab_switches") !== String(switchCount)) {
+                        currentUrl.searchParams.set("tab_switches", switchCount);
+                        window.parent.history.replaceState({}, '', currentUrl.toString());
+                    }
+                } catch(e) {}
+                
+                let banner = parentDoc.getElementById('tab-switch-banner');
+                if (!banner) {
+                    banner = parentDoc.createElement('div');
+                    banner.id = 'tab-switch-banner';
+                    banner.style.position = 'fixed';
+                    banner.style.top = '15px';
+                    banner.style.right = '15px';
+                    banner.style.zIndex = '999999';
+                    banner.style.background = 'rgba(239, 68, 68, 0.95)';
+                    banner.style.color = '#FFFFFF';
+                    banner.style.padding = '12px 20px';
+                    banner.style.borderRadius = '10px';
+                    banner.style.fontFamily = 'Outfit, sans-serif';
+                    banner.style.fontWeight = 'bold';
+                    banner.style.fontSize = '0.9rem';
+                    banner.style.boxShadow = '0 4px 20px rgba(239, 68, 68, 0.6)';
+                    banner.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+                    banner.style.transition = 'all 0.3s ease';
+                    parentDoc.body.appendChild(banner);
+                }
+                banner.innerText = `⚠️ Tab Switch Warning! Leaving the window was logged (${switchCount} switch${switchCount > 1 ? 'es' : ''})`;
+                banner.style.display = 'block';
+                
+                setTimeout(() => {
+                    if (banner) banner.style.display = 'none';
+                }, 4000);
+            }
+            
+            parentDoc.addEventListener('visibilitychange', () => {
+                if (parentDoc.hidden || parentDoc.visibilityState === 'hidden') {
+                    notifyTabSwitch();
+                }
+            });
+            
+            window.parent.addEventListener('blur', () => {
+                notifyTabSwitch();
+            });
+        } catch(err) {
+            console.error("Tab switch detector setup error:", err);
+        }
+    })();
+    </script>
+    """
+    import streamlit.components.v1 as components
+    components.html(tab_switch_html, height=0, width=0)
+
 # Save session utility
 def save_session_streamlit():
     sessions_dir = os.path.join("data", "sessions")
@@ -460,6 +545,7 @@ def save_session_streamlit():
         "role": st.session_state.target_role,
         "experience_level": st.session_state.experience_level,
         "timestamp": datetime.now().isoformat(),
+        "tab_switches": st.session_state.get("tab_switches", 0),
         "history": st.session_state.history,
         "evaluation": st.session_state.evaluation
     }
@@ -706,7 +792,8 @@ else:
                         res = requests.post(f"{API_URL}/evaluate", json={
                             "target_role": st.session_state.target_role,
                             "history": st.session_state.history,
-                            "experience_level": st.session_state.experience_level
+                            "experience_level": st.session_state.experience_level,
+                            "tab_switches": st.session_state.get("tab_switches", 0)
                         })
                         res.raise_for_status()
                         evaluation = res.json()
@@ -758,7 +845,8 @@ else:
                     res = requests.post(f"{API_URL}/evaluate", json={
                         "target_role": st.session_state.target_role,
                         "history": st.session_state.history,
-                        "experience_level": st.session_state.experience_level
+                        "experience_level": st.session_state.experience_level,
+                        "tab_switches": st.session_state.get("tab_switches", 0)
                     })
                     res.raise_for_status()
                     evaluation = res.json()
@@ -786,6 +874,7 @@ else:
                 save_session_streamlit()
                 st.rerun()
 
+        render_tab_switch_detector()
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
         progress_val = min(st.session_state.fresh_asked / 5.0, 1.0)
         st.progress(progress_val)
@@ -1227,6 +1316,19 @@ else:
             delta = ed_time - st_time
             total_secs = int(delta.total_seconds())
             duration_str = f"{total_secs // 60}m {total_secs % 60}s"
+
+        # Proctoring Audit Alert Box
+        switches = st.session_state.get("tab_switches", 0)
+        if switches > 0:
+            st.markdown(
+                f"<div style='background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px; font-family: Outfit, sans-serif;'>"
+                f"<h4 style='color: #FCA5A5; margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;'>🔒 Proctoring Security Alert</h4>"
+                f"<p style='color: #CBD5E1; margin: 0; font-size: 0.95rem;'>"
+                f"Candidate switched browser tabs/windows <b>{switches} time(s)</b> during the assessment. This has been logged in the audit trail and evaluated as part of behavioral integrity."
+                f"</p>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:

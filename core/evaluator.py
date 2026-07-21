@@ -29,9 +29,9 @@ class FinalEvaluation(BaseModel):
     detailed_technical: DetailedTechnical
     feedback: FeedbackBlock
 
-def generate_evaluation(target_role: str, history: list, experience_level: str = "Mid-Level") -> dict:
+def generate_evaluation(target_role: str, history: list, experience_level: str = "Mid-Level", tab_switches: int = 0) -> dict:
     """
-    Analyzes the interview history and generates a comprehensive final evaluation calibrated to the target role and experience level.
+    Analyzes the interview history and generates a comprehensive final evaluation calibrated to the target role, experience level, and proctoring audit.
     """
     # Calculate simple math for average of scores
     valid_scores = [turn["score"] for turn in history if "score" in turn]
@@ -53,6 +53,7 @@ You are an expert AI Technical Interview Evaluator. Your task is to analyze the 
 
 Target Role: {target_role}
 Candidate Experience Level: {experience_level}
+Proctoring Audit: Candidate switched browser tabs/windows {tab_switches} time(s) during the assessment.
 
 Interview Transcript with Scores:
 {history_str}

@@ -22,8 +22,13 @@ class TestInterviewAgentAPI(unittest.TestCase):
             stderr=subprocess.DEVNULL
         )
         
-        # Wait a moment for server to bind to port 8000
-        time.sleep(3.0)
+        # Wait for server to bind to port 8000
+        for _ in range(20):
+            try:
+                requests.get("http://127.0.0.1:8000/", timeout=0.5)
+                break
+            except Exception:
+                time.sleep(0.5)
 
     @classmethod
     def tearDownClass(cls):
@@ -124,7 +129,8 @@ class TestInterviewAgentAPI(unittest.TestCase):
         ]
         response = requests.post(f"{self.api_url}/evaluate", json={
             "target_role": "Backend Developer",
-            "history": history
+            "history": history,
+            "tab_switches": 2
         })
         self.assertEqual(response.status_code, 200)
         data = response.json()
