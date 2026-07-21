@@ -48,8 +48,7 @@ def _get_rag_context_block(resume_text: str, query_str: str, rag_instance: Resum
 
 def generate_first_question(resume_text: str, target_role: str, experience_level: str = None, rag_instance: ResumeRAG = None) -> str:
     """
-    Generates the initial interview question.
-    Must reference something specific from the candidate's resume (e.g., a project, tool, or skill).
+    Generates the initial interview question grounded strictly in candidate skills, projects, experience, and target role.
     Calibrates difficulty based on candidate experience level. Uses RAG vector retrieval.
     """
     level = experience_level if experience_level else determine_experience_level(resume_text)
@@ -57,31 +56,34 @@ def generate_first_question(resume_text: str, target_role: str, experience_level
     
     prompt = f"""You are an expert, highly adaptive Technical Interviewer Agent for the role: "{target_role}". Your goal is to conduct a fluid, deep, and structured interview by dynamically generating the first question.
 
+Target Role Chosen: "{target_role}"
 Candidate's Experience Level: {level}
+
 {rag_context}
+
+Candidate's Resume:
+{resume_text}
+
 Task:
 Generate the FIRST question of the interview.
 
 QUESTION GENERATION RULES:
-1. Resume Grounding: This first question MUST explicitly reference a specific detail from the candidate's resume or retrieved RAG context (e.g., a specific project, tool, database, framework, or company they worked at, or a skill they claimed).
+1. Resume & Role Grounding: This question MUST explicitly reference specific skills, projects, or work experience listed on the candidate's resume (e.g., a specific project architecture, framework, database, tool, or work experience detail) and tie it directly to the chosen role: "{target_role}".
 2. Pillar Focus: Start with either a specific Work Experience Detail or a Project Architecture breakdown listed on their resume.
-3. Calibrate the question difficulty and technical depth to match their experience level ({level}):
-   - If Junior: Ask about basic usage, implementation steps, and understanding of core principles.
-   - If Mid-Level: Ask about performance optimizations, integration patterns, and concrete challenges.
+3. Calibrate question difficulty and technical depth to match their experience level ({level}):
+   - If Junior: Ask about core principles, basic usage, implementation steps, and problem-solving logic.
+   - If Mid-Level: Ask about performance optimizations, integration patterns, edge cases, and concrete engineering challenges.
    - If Senior: Ask about architectural design decisions, scalability trade-offs, system failures, and leadership context.
 
 OUTPUT FORMAT:
 Output your response in clear, conversational text as the Interviewer. Do not include any meta-commentary, headers, or explanations of your logic. Just ask the question.
-
-Candidate's Resume:
-{resume_text}
 """
     response = ask_llm(prompt)
     return response.strip()
 
 def generate_next_question(resume_text: str, target_role: str, history: list, experience_level: str = None, rag_instance: ResumeRAG = None) -> str:
     """
-    Generates a new, fresh question for the interview based on the role, resume, and history.
+    Generates a new, fresh question for the interview based on the role, resume skills/projects/experience, and candidate answer.
     Calibrates difficulty based on candidate experience level. Uses RAG vector retrieval.
     """
     level = experience_level if experience_level else determine_experience_level(resume_text)
@@ -101,28 +103,29 @@ def generate_next_question(resume_text: str, target_role: str, history: list, ex
 
     prompt = f"""You are an expert, highly adaptive Technical Interviewer Agent for the role: "{target_role}". Your goal is to conduct a fluid, deep, and completely non-repetitive interview by dynamically generating the next question.
 
+Target Role Chosen: "{target_role}"
 Candidate's Experience Level: {level}
+
 {rag_context}
-Candidate's Resume:
+
+Candidate's Resume (Skills, Projects, Experience):
 {resume_text}
 
-Interview History (Transcript):
+Interview History (Transcript & Candidate Answers):
 {history_str}
 
 ---
 
 QUESTION GENERATION RULES:
-1. Zero Repetition Guardrail: Check the Interview History. You are strictly forbidden from asking a question on the exact same topic, metric, or project unless you are explicitly digging deeper into a loophole in their previous answer.
-2. Keyword Hooking: Analyze the candidate's last response in the transcript. Identify specific technical keywords, libraries, or architectural terms they just used.
+1. Candidate Answer & Resume Synthesis: Analyze the candidate's LAST answer. Identify specific technical tools, concepts, or solutions they mentioned. Bridge their answer directly into another skill, project, or work experience bullet from their resume.
+2. Zero Repetition Guardrail: Check the Interview History. You are strictly forbidden from asking a question on the exact same topic, metric, or project unless you are explicitly digging deeper into a loophole in their previous answer.
 3. Pillar Rotation: Alternate your focus across the interview. Do not cluster all questions around one area. Switch intelligently between:
-   - Work Experience Detail: Deep-diving into scaling, trade-offs, or real-world constraints from a previous company.
+   - Work Experience Detail: Deep-diving into scaling, trade-offs, or real-world constraints from a previous role.
    - Project Architecture: Breaking down specific tool selections, bottlenecks, or deployment strategies from their listed projects.
-   - Foundational / Core Engineering: Testing core algorithmic logic, optimization (Big O), database joins, or data pipelines.
+   - Skills & Core Engineering: Testing core algorithms, frameworks, tools, or domain concepts essential for {target_role}.
 
-EXECUTABLE BEHAVIOR:
-- Pivot to a completely different node of their resume (e.g., shift from an engineering project to a specific tool or work experience metric) to test their breadth, ensuring you alternate pillars.
-- Calibrate the question difficulty and technical depth to match their experience level ({level}):
-  - If Junior: Ask about basic usage, implementation steps, and understanding of core principles.
+4. Calibrate question difficulty and technical depth to match their experience level ({level}):
+  - If Junior: Ask about core principles, basic usage, implementation steps, and logic.
   - If Mid-Level: Ask about performance optimizations, integration patterns, and concrete challenges.
   - If Senior: Ask about architectural design decisions, scalability trade-offs, system failures, and leadership context.
 
@@ -141,25 +144,28 @@ def generate_follow_up(resume_text: str, target_role: str, question: str, answer
 
     prompt = f"""You are an expert, highly adaptive Technical Interviewer Agent for the role: "{target_role}". Your goal is to conduct a fluid, deep, and targeted interview follow-up.
 
-The candidate gave a weak or vague answer to a question. You need to ask ONE targeted follow-up question to dig deeper and challenge them to provide more specificity, technical depth, or concrete evidence.
+The candidate gave a weak or vague answer to a question. You need to ask ONE targeted follow-up question to dig deeper and challenge them to provide more specificity, technical depth, or concrete evidence based on their resume skills, projects, candidate answer, and chosen role ({target_role}).
 
+Target Role Chosen: "{target_role}"
 Candidate's Experience Level: {level}
+
 {rag_context}
+
 Original Question:
 {question}
 
 Candidate's Answer:
 {answer}
 
+Candidate's Resume:
+{resume_text}
+
 ---
 
 QUESTION GENERATION RULES:
-1. Keyword Hooking: Analyze the candidate's answer. Identify specific technical keywords, libraries, or architectural terms they just used.
-2. Deep-Dive targeted behavior: Do not change the subject. Generate a targeted follow-up question that explicitly forces them to defend their design choices or name concrete tools/metrics/libraries they would use.
-3. Calibrate the question difficulty and technical depth to match their experience level ({level}):
-   - If Junior: Focus on explaining basic steps, mechanics, or simple code choices.
-   - If Mid-Level: Focus on production configuration, security, and metrics.
-   - If Senior: Focus on failovers, scalability under load, enterprise compliance, and system failure modes.
+1. Candidate Answer Hooking: Analyze the candidate's answer. Identify specific technical keywords, tools, or concepts they mentioned or omitted.
+2. Cross-Reference Resume Skills & Projects: Bridge their weak answer to specific projects, skills, or experience listed on their resume.
+3. Deep-Dive behavior: Challenge them to defend their technical choices, explain implementation steps, or provide concrete metrics relevant to a {level} candidate in the {target_role} role.
 
 OUTPUT FORMAT:
 Output your response in clear, conversational text as the Interviewer. Do not include any meta-commentary, headers, or explanations of your logic. Just ask the follow-up question.

@@ -389,6 +389,11 @@ def get_offline_question(resume_text: str, role: str, q_index: int, history: lis
             bullet = bullet[:147] + "..."
         return f"I see in your previous experience at {company} that you worked to '{bullet}'. Can you walk me through the specific architectural decisions and execution steps for this task?"
         
+    elif q_index == 2:
+        skills = info.get("skills", [])
+        top_skill = skills[0] if skills else "software engineering"
+        return f"Your resume highlights proficiency in '{top_skill}'. In your experience for the {role} role, how have you applied {top_skill} in production environments to solve technical challenges?"
+        
     elif q_index == 3:
         proj = proj_bullets[0]
         if len(proj) > 150:
