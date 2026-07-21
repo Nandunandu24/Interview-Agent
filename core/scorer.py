@@ -17,16 +17,15 @@ class AnswerScore(BaseModel):
 
 def score_answer(question: str, answer: str, target_role: str, experience_level: str = "Mid-Level") -> dict:
     """
-    Evaluates a candidate's answer to a specific interview question.
-    Calibrates expectations based on target role and candidate experience level (Junior / Mid-Level / Senior).
-    Compares response against expected technical domain knowledge.
+    Evaluates a candidate's answer to a specific interview question as an LLM-as-a-Judge.
+    Evaluates Technical Depth (0-3), Keywords/Tools (0-3), Communication/Fluency (0-2), and Topic Knowledge (0-2).
     Returns a dictionary matching the AnswerScore schema.
     """
     prompt = f"""
-You are an expert technical interviewer evaluating a candidate for the role: "{target_role}" at the "{experience_level}" level.
+You are an expert AI Technical Interview Scorer acting as LLM-as-a-Judge for the role: "{target_role}" at the "{experience_level}" level.
 
 Task:
-Evaluate the candidate's answer to the given question by cross-checking it against expected domain knowledge for a {experience_level} {target_role}.
+Evaluate the candidate's answer to the given question based on their technical depth, technical keyword usage, communication fluency, and topic knowledge.
 
 Question Asked:
 {question}
@@ -34,37 +33,36 @@ Question Asked:
 Candidate's Answer:
 {answer}
 
-EXPERIENCE LEVEL SCORING CALIBRATION ({experience_level}):
-- If JUNIOR: Expect foundational understanding, core syntax/logic, and clean explanation of basic steps. Do NOT penalize for lacking enterprise architecture or complex scale/failover trade-offs.
-- If MID-LEVEL: Expect production-readiness, concrete framework/library usage, error handling, performance optimization, and testing practices.
-- If SENIOR: Expect architectural design decisions, system scalability under peak load, failover strategies, security compliance, and leadership/trade-off context.
+EXPERIENCE LEVEL CALIBRATION ({experience_level}):
+- JUNIOR: Expect foundational understanding, core syntax/logic, and clean explanation of basic steps.
+- MID-LEVEL: Expect production readiness, framework/library usage, error handling, and performance optimization.
+- SENIOR: Expect architectural choices, system scalability under peak load, failover strategies, and leadership context.
 
-CRITERIA BREAKDOWN:
-1. Relevance: Did they directly address the core technical question?
-2. Correctness/Depth: Is the answer technically sound, accurate, and aligned with expected {experience_level} domain concepts? Compare with what an ideal {experience_level} candidate would explain.
-3. Clarity: Is the response well-structured, clear, and easy to follow?
-4. Specificity/Evidence: Did they mention concrete technologies, metrics, examples, or experiences appropriate for their level?
+RUBRIC MATRIX (Sum to calculate total score 0 to 10):
+1. Technical Depth (0 to 3 pts): Accuracy, design reasoning, and step-by-step logic appropriate for a {experience_level} candidate.
+2. Keywords & Tools (0 to 3 pts): Presence of relevant frameworks, libraries, technologies, or metrics.
+3. Communication & Fluency (0 to 2 pts): Structure, articulation, clarity, and readability.
+4. Topic Knowledge & Relevance (0 to 2 pts): Directness and correctness in addressing the question topic.
 
-TASK DETAILS:
-- Provide an overall score between 0 and 10 calibrated to {experience_level} expectations.
-- Set is_weak = true if score < 5 (if the answer is vague, off-topic, or missing basic expected concepts).
-- In 'justification', provide a clear technical summary of why this score was awarded and what was expected.
-- In 'breakdown', provide specific feedback for relevance, correctness_depth, clarity, and specificity_evidence.
+SCORE RULES:
+- Total Score = Sum of 4 dimensions (0 to 10).
+- Set is_weak = true ONLY if Total Score < 4 (e.g. answer is extremely brief, off-topic, or completely vague).
+- If Total Score >= 4, set is_weak = false.
 
 Return ONLY a valid JSON object matching the following schema:
 {{
   "score": 7,
   "is_weak": false,
-  "justification": "A summary explanation comparing the answer against expected {experience_level} concepts.",
+  "justification": "A clear, encouraging 1-2 sentence technical summary explaining the score based on technical depth, keywords, and communication.",
   "breakdown": {{
-    "relevance": "Specific feedback on how well the candidate addressed the question.",
-    "correctness_depth": "Evaluation of technical accuracy and depth compared to expected {experience_level} concepts.",
-    "clarity": "Feedback on communication style, structure, and readability.",
-    "specificity_evidence": "Feedback on concrete examples, tools, metrics, or technologies used."
+    "relevance": "Specific feedback on how directly the candidate answered the question.",
+    "correctness_depth": "Specific evaluation of technical accuracy and depth for a {experience_level} candidate.",
+    "clarity": "Feedback on communication style, structure, and verbal fluency.",
+    "specificity_evidence": "Feedback on concrete technical keywords, frameworks, tools, or metrics used."
   }}
 }}
 
-Ensure the JSON is perfectly valid. Do not include markdown code blocks (like ```json), introduction, or conversational filler.
+Ensure the JSON is perfectly valid. Do not include markdown code blocks, introduction, or conversational filler.
 """
     try:
         response_text = ask_llm(prompt, expect_json=True)
@@ -77,12 +75,17 @@ Ensure the JSON is perfectly valid. Do not include markdown code blocks (like ``
             
         data = json.loads(response_text.strip())
         
-        # Validate with Pydantic
+        # Ensure is_weak consistency: only true if score < 4
+        if data.get("score", 6) >= 4:
+            data["is_weak"] = False
+        else:
+            data["is_weak"] = True
+
         validated_data = AnswerScore(**data)
         return validated_data.model_dump()
         
     except (ValidationError, json.JSONDecodeError, Exception) as e:
-        # Graceful fallback in case of LLM formatting error or connection issues
+        # Graceful dynamic fallback matrix
         import re
         COMMON_SKILLS = [
             "Python", "FastAPI", "Go", "Java", "Docker", "Kubernetes", "AWS", "SQL",
@@ -95,149 +98,39 @@ Ensure the JSON is perfectly valid. Do not include markdown code blocks (like ``
         
         words = answer.strip().split()
         word_count = len(words)
-        q_lower = question.lower()
         ans_lower = answer.lower()
         
         tech_hits = []
-        for tech in COMMON_SKILLS + ["scale", "optimize", "secure", "test", "pool", "cache", "database", "api"]:
+        for tech in COMMON_SKILLS + ["scale", "optimize", "secure", "test", "pool", "cache", "database", "api", "architecture", "query", "model"]:
             if re.search(r'\b' + re.escape(tech) + r'\b', answer, re.IGNORECASE):
                 tech_hits.append(tech)
                 
-        # Default feedback placeholders
-        relevance = "Addressed the question topic directly."
-        correctness = "Basic conceptual understanding of the requested topic."
-        clarity = "Well structured explanation." if word_count > 20 else "Explanation was brief."
-        specificity = f"Referenced tools/concepts: {', '.join(tech_hits)}." if tech_hits else "Lacked specific tool names or metrics."
-        justification = "Answer shows general conceptual understanding but lacks specific details."
-        score = 6
-        is_weak = False
-        
-        # Identify unique topic of the question to customize evaluation
-        if any(k in q_lower for k in ["architectural decisions", "analytics pipeline", "ingestion"]):
-            relevance = "Addressed the architectural design and data flow of the analytics pipeline."
-            if any(w in ans_lower for w in ["airflow", "kafka", "spark", "dbt", "luigi", "prefect", "glue"]):
-                correctness = "Demonstrated clear understanding of data flow orchestration and ingestion layers."
-                score = 8
-                justification = f"Detailed response explaining pipeline stages and referencing orchestration tools like {tech_hits[0] if tech_hits else 'Airflow'}."
-            else:
-                correctness = "Conceptual understanding of data pipelines, but lacks structural and tool depth."
-                score = 6
-                justification = "Answer shows general conceptual understanding but lacks specific details. Suggestion: Mention concrete tools, libraries, or frameworks (e.g., Apache Kafka or Airflow) you would use to build the ingestion and orchestration layers."
-                
-        elif "regression" in q_lower:
-            relevance = "Focused on regression predictive models and coefficient interpretation."
-            if "multiple" in ans_lower or "simple" in ans_lower:
-                if "coefficient" in ans_lower or "weight" in ans_lower:
-                    correctness = "Clearly articulated simple vs. multiple regression and the meaning of coefficient weights."
-                    score = 8
-                    justification = "Solid distinction between regression models and correct interpretation of coefficient mathematical weight."
-                else:
-                    correctness = "Distinguishes regression types conceptually but misses practical coefficient interpretation."
-                    score = 6
-                    justification = "Answer describes regression models but lacks coefficient interpretation. Suggestion: Clarify how regression coefficients mathematically represent the expected change in the target variable per unit change of the predictor, holding other variables constant."
-            else:
-                correctness = "Struggled with linear regression definitions and coefficient scaling."
-                score = 5
-                is_weak = True
-                justification = "Response was somewhat vague on regression. Suggestion: Study the difference between simple linear regression (single independent variable) and multiple linear regression (multiple predictors)."
-
-        elif any(k in q_lower for k in ["bottleneck", "equilibria", "rate limit", "supply chain"]):
-            relevance = "Addressed supply chain bottlenecks, API rate limits, and integration mitigations."
-            if "rate limit" in ans_lower or "api" in ans_lower:
-                if any(w in ans_lower for w in ["queue", "backoff", "cache", "retry", "celery", "redis"]):
-                    correctness = "Proposed standard rate limit mitigations using message queues or caching."
-                    score = 8
-                    justification = "Correctly addressed integration bottlenecks using queueing/caching systems."
-                else:
-                    correctness = "Identified rate limit issues but proposed a basic polling delay instead of architectural solutions."
-                    score = 6
-                    justification = "Answer shows general conceptual understanding of API limits but lacks design depth. Suggestion: Propose architectural solutions like exponential backoff, request queues (e.g. Celery), or caching."
-            else:
-                correctness = "Vague description of supply chain bottlenecks and mitigation challenges."
-                score = 5
-                is_weak = True
-                justification = "Response was somewhat vague on mitigation. Suggestion: Discuss using queue systems (like RabbitMQ) or API gateways to manage data rate limits."
-
-        elif any(k in q_lower for k in ["etl", "docker", "gcp", "google cloud", "azure", "databricks"]):
-            relevance = "Addressed containerization practices and cloud ETL platforms."
-            if "docker" in ans_lower or "pipeline" in ans_lower:
-                if any(w in ans_lower for w in ["image", "container", "multi-stage", "kubernetes", "k8s", "ci/cd"]):
-                    correctness = "Demonstrated clear dev standards with Docker and ETL automation."
-                    score = 8
-                    justification = "Clear response detailing containerization and cloud environment build/test processes."
-                else:
-                    correctness = "General overview of ETL phases, but lacked containerization execution details."
-                    score = 6
-                    justification = "Answer shows general conceptual understanding of Docker/ETL but lacks execution standards. Suggestion: Elaborate on how you handle error states, scalability issues, or testing for this technology."
-            else:
-                correctness = "Struggled to articulate daily cloud engineering standards."
-                score = 5
-                is_weak = True
-                justification = "Response was somewhat vague on cloud engineering standards. Suggestion: Detail how containerization (Docker) or cloud services influence your architectural choices."
-
-        elif any(k in q_lower for k in ["statistics", "mean", "median", "mode", "standard deviation"]):
-            relevance = "Addressed statistical measures (mean, median, mode, std dev) for a non-technical audience."
-            if "average" in ans_lower or "middle" in ans_lower or "spread" in ans_lower or "deviation" in ans_lower:
-                if "square root" in ans_lower or "variance" in ans_lower:
-                    correctness = "Gave circular mathematical definitions instead of simple layman explanations."
-                    score = 6
-                    justification = "Answer explains definitions but fails to translate standard deviation intuitively to non-technical users. Suggestion: Use a concrete analogy (e.g. height variance in a room) to explain spread."
-                else:
-                    correctness = "Correctly simplified measures of center and spread."
-                    score = 8
-                    justification = "Good non-technical explanation of descriptive statistics."
-            else:
-                correctness = "Failed to explain statistics intuitively."
-                score = 5
-                is_weak = True
-                justification = "Response was somewhat vague. Suggestion: Practice using analogies (e.g. explaining mean as 'balancing point') to communicate concepts to a layman."
-                
-        # Generic length-based overrides
-        if word_count < 10:
+        # Calculate score dynamically based on keyword density, communication clarity, and length
+        base_score = 6
+        if len(tech_hits) >= 2:
+            base_score += 2
+        elif len(tech_hits) == 1:
+            base_score += 1
+            
+        if word_count > 25:
+            base_score += 1
+            
+        score = min(max(base_score, 3), 9)
+        if word_count < 5:
             score = 3
-            is_weak = True
-            justification = "Response was extremely brief. Suggestion: Expand your answer by explaining key steps, naming specific tools, and giving a concrete example."
-            relevance = "Response was too brief to address the topic."
-            correctness = "Basic conceptual understanding."
-            clarity = "Explanation was brief."
-            specificity = "Lacked specific tool names or metrics."
-        elif word_count < 25 and score > 5:
-            score = 5
-            is_weak = True
-            justification = "Response was somewhat vague. Suggestion: Provide concrete tool names (e.g. specific libraries or databases), mention metrics, or walk through a past project scenario."
-
-        # Parse out Critique and Suggestion from justification for clean display
-        suggestion_marker = re.search(r'\b(suggestions?|suggest):\s*', justification, re.IGNORECASE)
-        critique_part = justification
-        suggestion_part = ""
-        if suggestion_marker:
-            start_idx = suggestion_marker.start()
-            end_idx = suggestion_marker.end()
-            critique_part = justification[:start_idx].strip()
-            suggestion_part = justification[end_idx:].strip()
-            if critique_part.endswith(":") or critique_part.endswith(".") or critique_part.endswith(","):
-                critique_part = critique_part.rstrip(":,.")
-                
-        # Tailor suggestion to the specific question topic if none parsed
-        if not suggestion_part:
-            if "regression" in q_lower:
-                suggestion_part = "Discuss how collinearity affects coefficient interpretation and how standard error behaves."
-            elif "bottleneck" in q_lower:
-                suggestion_part = "Detail standard backpressure patterns, queue sizes, or cache-aside configurations."
-            elif "etl" in q_lower or "docker" in q_lower:
-                suggestion_part = "Describe Docker build optimizations like multi-stage caching or parquet partition sizes."
-            elif "statistics" in q_lower:
-                suggestion_part = "Provide a specific dataset example, like how salary distributions skew the mean vs. median."
-            else:
-                suggestion_part = "Mention specific frameworks, tools, or libraries to ground your architectural design."
-
-        # Format justification with suggestion to maintain backend API format
-        full_justification = f"{critique_part}. Suggestion: {suggestion_part}"
+            
+        is_weak = score < 4
+        
+        relevance = "Addressed the core question topic directly."
+        correctness = f"Demonstrated technical depth with concepts like {', '.join(tech_hits[:2])}." if tech_hits else "Demonstrated general conceptual understanding."
+        clarity = "Clear and well-structured response." if word_count > 12 else "Concise answer."
+        specificity = f"Used technical terms: {', '.join(tech_hits)}." if tech_hits else "Focused on general technical concepts."
+        justification = f"Solid answer addressing the question with good communication fluency and technical vocabulary ({', '.join(tech_hits[:3]) if tech_hits else 'conceptual terms'})."
 
         return {
             "score": score,
             "is_weak": is_weak,
-            "justification": full_justification,
+            "justification": justification,
             "breakdown": {
                 "relevance": relevance,
                 "correctness_depth": correctness,

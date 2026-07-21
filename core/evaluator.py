@@ -125,17 +125,26 @@ Return ONLY a valid JSON object matching the schema. Do not include markdown cod
         data["overall_score"] = computed_overall_score
         data["scoring_formula"] = "Average of all question scores (fresh and follow-up) scaled out of 100: (Sum of scores / Number of questions) * 10"
         
+        if computed_overall_score >= 78:
+            data["verdict"] = "Strong Hire"
+        elif computed_overall_score >= 64:
+            data["verdict"] = "Hire"
+        elif computed_overall_score >= 48:
+            data["verdict"] = "Borderline"
+        else:
+            data["verdict"] = "No Hire"
+            
         validated_data = FinalEvaluation(**data)
         return validated_data.model_dump()
         
     except (ValidationError, json.JSONDecodeError, Exception) as e:
         # Fallback evaluation
         rec = "Borderline"
-        if computed_overall_score >= 80:
+        if computed_overall_score >= 78:
             rec = "Strong Hire"
-        elif computed_overall_score >= 68:
+        elif computed_overall_score >= 64:
             rec = "Hire"
-        elif computed_overall_score < 50:
+        elif computed_overall_score < 48:
             rec = "No Hire"
             
         return {

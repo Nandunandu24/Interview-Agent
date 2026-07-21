@@ -567,8 +567,8 @@ def score_answer_offline(question: str, answer: str) -> dict:
             is_weak = True
             justification = "Response was somewhat vague. Suggestion: Practice using analogies (e.g. explaining mean as 'balancing point') to communicate concepts to a layman."
             
-    # Generic length-based overrides
-    if word_count < 10:
+    # Generic length-based overrides: only set weak if under 5 words
+    if word_count < 5:
         score = 3
         is_weak = True
         justification = "Response was extremely brief. Suggestion: Expand your answer by explaining key steps, naming specific tools, and giving a concrete example."
@@ -576,10 +576,6 @@ def score_answer_offline(question: str, answer: str) -> dict:
         correctness = "Basic conceptual understanding."
         clarity = "Explanation was brief."
         specificity = "Lacked specific tool names or metrics."
-    elif word_count < 25 and score > 5:
-        score = 5
-        is_weak = True
-        justification = "Response was somewhat vague. Suggestion: Provide concrete tool names (e.g. specific libraries or databases), mention metrics, or walk through a past project scenario."
 
     # Parse out Critique and Suggestion from justification for clean display
     suggestion_marker = re.search(r'\b(suggestions?|suggest):\s*', justification, re.IGNORECASE)
